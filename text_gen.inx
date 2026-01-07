@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+    <name>AI Text Generator</name>
+    <id>org.inkscape.ai.text.generator</id>
+    
+    <param name="tab" type="notebook">
+        <page name="mode" gui-text="Mode">
+            <param name="operation_mode" type="optiongroup" appearance="combo" gui-text="Operation mode:">
+                <option value="create">Create new text</option>
+                <option value="modify">Modify selected text</option>
+                <option value="translate">Translate text</option>
+                <option value="summarize">Summarize text</option>
+                <option value="expand">Expand text</option>
+                <option value="rewrite">Rewrite/improve text</option>
+            </param>
+            <spacer/>
+            <label>Create: Generate new text from prompt</label>
+            <label>Modify: Change selected text based on instructions</label>
+            <label>Translate: Translate selected text to another language</label>
+            <label>Summarize: Make selected text shorter</label>
+            <label>Expand: Make selected text longer/detailed</label>
+            <label>Rewrite: Improve grammar, style, or tone</label>
+        </page>
+        
+        <page name="api" gui-text="API Config">
+            <param name="api_provider" type="optiongroup" appearance="combo" gui-text="API Provider:">
+                <option value="openai">OpenAI (Cloud)</option>
+                <option value="ollama">Ollama (Local)</option>
+                <option value="llamafile">llamafile (Local)</option>
+            </param>
+            <spacer/>
+            
+            <label appearance="header">Cloud API Configuration</label>
+            <param name="api_key" type="string" gui-text="OpenAI API Key:">sk-...</param>
+            <label>Keep your API key secure. It will not be saved.</label>
+            <spacer/>
+            
+            <param name="model" type="optiongroup" appearance="combo" gui-text="Cloud Model:">
+                <option value="gpt-4">GPT-4 (Best quality)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo (Fast &amp; quality)</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fast &amp; cheap)</option>
+            </param>
+            <spacer/>
+            
+            <label appearance="header">Local LLM Configuration</label>
+            <param name="api_url" type="string" gui-text="API URL:">http://localhost:11434</param>
+            <label>Ollama default: http://localhost:11434</label>
+            <label>llamafile default: http://localhost:8080</label>
+            <spacer/>
+            
+            <param name="auto_detect_model" type="bool" gui-text="Auto-detect available model">true</param>
+            <label>Automatically find and use first available model</label>
+            <spacer/>
+            
+            <param name="local_model" type="string" gui-text="Local Model Name (optional):"></param>
+            <label>Leave empty to auto-detect. Popular models:</label>
+            <label>Ollama: llama2, llama3, mistral, codellama, phi, gemma</label>
+            <label>llamafile: Uses the model loaded in llamafile</label>
+            <spacer/>
+            
+            <label appearance="header">Setup Instructions</label>
+            <label>Ollama:</label>
+            <label>  1. Install from ollama.ai</label>
+            <label>  2. Run 'ollama serve' in terminal</label>
+            <label>  3. Pull a model: 'ollama pull llama2'</label>
+            <spacer/>
+            <label>llamafile:</label>
+            <label>  1. Download .llamafile from Mozilla</label>
+            <label>  2. Make executable and run it</label>
+            <label>  3. Server starts automatically</label>
+        </page>
+        
+        <page name="prompt" gui-text="Prompt">
+            <param name="prompt" type="string" gui-text="Text prompt or instruction:">Write a short welcome message</param>
+            <spacer/>
+            <param name="target_language" type="string" gui-text="Target language (for translation):">French</param>
+            <label>Only used when mode is set to Translate</label>
+        </page>
+        
+        <page name="style" gui-text="Text Style">
+            <param name="font_family" type="optiongroup" appearance="combo" gui-text="Font family:">
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+                <option value="Impact">Impact</option>
+                <option value="Trebuchet MS">Trebuchet MS</option>
+                <option value="serif">Serif (Generic)</option>
+                <option value="sans-serif">Sans-serif (Generic)</option>
+                <option value="monospace">Monospace (Generic)</option>
+            </param>
+            
+            <param name="font_size" type="int" min="8" max="144" gui-text="Font size (px):">24</param>
+            
+            <param name="font_weight" type="optiongroup" appearance="combo" gui-text="Font weight:">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+                <option value="lighter">Lighter</option>
+                <option value="bolder">Bolder</option>
+            </param>
+            
+            <param name="font_style" type="optiongroup" appearance="combo" gui-text="Font style:">
+                <option value="normal">Normal</option>
+                <option value="italic">Italic</option>
+                <option value="oblique">Oblique</option>
+            </param>
+            
+            <param name="text_decoration" type="optiongroup" appearance="combo" gui-text="Text decoration:">
+                <option value="none">None</option>
+                <option value="underline">Underline</option>
+                <option value="overline">Overline</option>
+                <option value="line-through">Line-through</option>
+            </param>
+        </page>
+        
+        <page name="color" gui-text="Colors">
+            <param name="text_color" type="string" gui-text="Text color (hex):">#000000</param>
+            <label>Examples: #000000 (black), #FF0000 (red), #0000FF (blue)</label>
+            <spacer/>
+            
+            <param name="use_background" type="bool" gui-text="Add background">false</param>
+            <param name="bg_color" type="string" gui-text="Background color (hex):">#FFFFFF</param>
+            <param name="bg_opacity" type="float" min="0.0" max="1.0" precision="2" gui-text="Background opacity:">0.8</param>
+            <param name="bg_padding" type="int" min="0" max="50" gui-text="Background padding (px):">10</param>
+        </page>
+        
+        <page name="layout" gui-text="Layout">
+            <param name="text_align" type="optiongroup" appearance="combo" gui-text="Text alignment:">
+                <option value="start">Left (Start)</option>
+                <option value="middle">Center (Middle)</option>
+                <option value="end">Right (End)</option>
+            </param>
+            
+            <param name="line_height" type="float" min="0.5" max="3.0" precision="1" gui-text="Line height:">1.2</param>
+            
+            <param name="letter_spacing" type="float" min="-5.0" max="20.0" precision="1" gui-text="Letter spacing (px):">0.0</param>
+            
+            <param name="word_spacing" type="float" min="-10.0" max="30.0" precision="1" gui-text="Word spacing (px):">0.0</param>
+            
+            <spacer/>
+            
+            <param name="max_width" type="int" min="100" max="2000" gui-text="Max text width (px):">600</param>
+            <label>Text will wrap at this width</label>
+            
+            <spacer/>
+            
+            <param name="position_mode" type="optiongroup" appearance="combo" gui-text="Position:">
+                <option value="center">Center of canvas</option>
+                <option value="cursor">At cursor/selected object</option>
+                <option value="top_left">Top left</option>
+                <option value="top_center">Top center</option>
+                <option value="top_right">Top right</option>
+                <option value="bottom_left">Bottom left</option>
+                <option value="bottom_center">Bottom center</option>
+                <option value="bottom_right">Bottom right</option>
+            </param>
+        </page>
+        
+        <page name="advanced" gui-text="Advanced">
+            <label appearance="header">Generation Settings</label>
+            <param name="temperature" type="float" min="0.0" max="2.0" precision="1" gui-text="Creativity (temperature):">0.7</param>
+            <label>Higher = more creative, Lower = more focused</label>
+            <spacer/>
+            
+            <param name="max_tokens" type="int" min="50" max="4000" gui-text="Max tokens:">500</param>
+            <label>Maximum length of generated text</label>
+            <spacer/>
+            
+            <param name="tone" type="optiongroup" appearance="combo" gui-text="Tone/style:">
+                <option value="none">Default</option>
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="professional">Professional</option>
+                <option value="friendly">Friendly</option>
+                <option value="enthusiastic">Enthusiastic</option>
+                <option value="humorous">Humorous</option>
+                <option value="serious">Serious</option>
+                <option value="poetic">Poetic</option>
+            </param>
+            <spacer/>
+            
+            <label appearance="header">Style Options</label>
+            <param name="preserve_style" type="bool" gui-text="Preserve existing text style when modifying">true</param>
+            <label>Keep font, size, color from selected text</label>
+            <spacer/>
+            
+            <label appearance="header">Performance Options</label>
+            <param name="stream_response" type="bool" gui-text="Stream response (Ollama only)">false</param>
+            <label>Show text as it's being generated (experimental)</label>
+            <spacer/>
+            
+            <label appearance="header">Text Formatting</label>
+            <param name="remove_asterisks" type="bool" gui-text="Remove markdown asterisks">true</param>
+            <label>Remove **bold** and *italic* markers from output</label>
+            <spacer/>
+            
+            <param name="remove_quotes" type="bool" gui-text="Remove surrounding quotes">true</param>
+            <label>Remove quotes if text is fully quoted</label>
+            <spacer/>
+            
+            <param name="capitalize_first" type="bool" gui-text="Capitalize first letter">false</param>
+            <label>Ensure first character is uppercase</label>
+        </page>
+        
+        <page name="help" gui-text="Help">
+            <label appearance="header">Quick Start:</label>
+            <label>1. Select API provider (OpenAI, Ollama, or llamafile)</label>
+            <label>2. Configure API settings in API Config tab</label>
+            <label>3. Select a mode (Create, Modify, Translate, etc.)</label>
+            <label>4. Enter your prompt or instruction</label>
+            <label>5. Customize text style, color, and layout (optional)</label>
+            <label>6. Click Apply</label>
+            <spacer/>
+            
+            <label appearance="header">Local LLM Setup:</label>
+            <label>Ollama (Recommended):</label>
+            <label>  • Install from ollama.ai</label>
+            <label>  • Run 'ollama serve' in terminal</label>
+            <label>  • Pull a model: 'ollama pull llama2'</label>
+            <label>  • Enable auto-detect or specify model name</label>
+            <spacer/>
+            <label>llamafile:</label>
+            <label>  • Download .llamafile from Mozilla</label>
+            <label>  • Make executable: chmod +x model.llamafile</label>
+            <label>  • Run: ./model.llamafile</label>
+            <label>  • Server starts on http://localhost:8080</label>
+            <spacer/>
+            
+            <label appearance="header">Using Modify/Translate/etc:</label>
+            <label>• Select a text object in Inkscape first</label>
+            <label>• Choose the operation mode you want</label>
+            <label>• The AI will process that selected text</label>
+            <label>• Use "Preserve style" to keep original formatting</label>
+            <spacer/>
+            
+            <label appearance="header">Model Auto-Detection:</label>
+            <label>• Enable in API Config tab (default: on)</label>
+            <label>• Extension automatically finds available models</label>
+            <label>• Works with both Ollama and llamafile</label>
+            <label>• Check Inkscape console for detected model name</label>
+            <spacer/>
+            
+            <!-- <label appearance="header">Tips:</label>
+            <label>• OpenAI usage costs apply (check pricing)</label>
+            <label>• Local LLMs are free but require setup</label>
+            <label>• Use lower temperature for factual content</label>
+            <label>• Use higher temperature for creative writing</label>
+            <label>• Streaming mode shows real-time generation</label>
+            <spacer/>
+            
+            <label appearance="header">Troubleshooting:</label>
+            <label>• Check Extensions → Errors for error messages</label>
+            <label>• Verify local LLM is running (curl test URL)</label>
+            <label>• Make sure text object is selected for Modify mode</label>
+            <label>• Try disabling auto-detect and specify model name</label> -->
+        </page>
+    </param>
+    
+    <effect>
+        <object-type>all</object-type>
+        <effects-menu>
+            <submenu name="Text"/>
+        </effects-menu>
+    </effect>
+    
+    <script>
+        <command location="inx" interpreter="python">text_gen.py</command>
+    </script>
+</inkscape-extension>
