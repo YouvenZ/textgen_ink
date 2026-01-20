@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Inkscape extension to generate and modify text using AI (OpenAI, Ollama, llamafile).
+Inkscape extension to generate and modify text using local LLM (Ollama, llamafile).
 """
 
 import inkex
@@ -12,18 +12,16 @@ import ssl
 
 
 class AITextGenerator(inkex.EffectExtension):
-    """Extension to generate and modify text using AI."""
+    """Extension to generate and modify text using local LLM."""
     
     def add_arguments(self, pars):
         pars.add_argument("--tab", type=str, default="mode", help="Active tab")
         pars.add_argument("--operation_mode", type=str, default="create", help="Operation mode")
         
         # API Configuration
-        pars.add_argument("--api_provider", type=str, default="openai", help="API provider")
-        pars.add_argument("--api_key", type=str, default="", help="API key")
+        pars.add_argument("--api_provider", type=str, default="ollama", help="API provider")
         pars.add_argument("--api_url", type=str, default="http://localhost:11434", help="Local API URL")
         pars.add_argument("--prompt", type=str, default="", help="User prompt")
-        pars.add_argument("--model", type=str, default="gpt-4-turbo", help="Cloud model to use")
         pars.add_argument("--local_model", type=str, default="", help="Local model name")
         pars.add_argument("--target_language", type=str, default="French", help="Target language for translation")
         
@@ -33,6 +31,7 @@ class AITextGenerator(inkex.EffectExtension):
         pars.add_argument("--font_weight", type=str, default="normal", help="Font weight")
         pars.add_argument("--font_style", type=str, default="normal", help="Font style")
         pars.add_argument("--text_decoration", type=str, default="none", help="Text decoration")
+        pars.add_argument("--text_scale", type=float, default=1.0, help="Text scale multiplier")
         
         # Color parameters
         pars.add_argument("--text_color", type=str, default="#000000", help="Text color")
@@ -48,6 +47,8 @@ class AITextGenerator(inkex.EffectExtension):
         pars.add_argument("--word_spacing", type=float, default=0.0, help="Word spacing")
         pars.add_argument("--max_width", type=int, default=600, help="Max text width")
         pars.add_argument("--position_mode", type=str, default="center", help="Position mode")
+        pars.add_argument("--x_offset", type=float, default=0.0, help="X position offset")
+        pars.add_argument("--y_offset", type=float, default=0.0, help="Y position offset")
         
         # Advanced parameters
         pars.add_argument("--temperature", type=float, default=0.7, help="Temperature")
@@ -65,27 +66,27 @@ class AITextGenerator(inkex.EffectExtension):
     def effect(self):
         """Main effect function."""
         # Validate API configuration
-        if self.options.api_provider == "openai":
-            if not self.options.api_key or self.options.api_key == "sk-...":
-                inkex.errormsg("Please provide a valid OpenAI API key in the API Config tab.")
+        if not self.options.api_url:
+            inkex.errormsg("Please provide a valid API URL for local LLM in the API Config tab.")
+            return
+        
+        # Trim whitespace from inputs
+        self.options.api_url = self.options.api_url.strip()
+        if self.options.local_model:
+            self.options.local_model = self.options.local_model.strip()
+        
+        # Auto-detect model if enabled and no model specified
+        if self.options.auto_detect_model and not self.options.local_model:
+            detected_model = self.detect_local_model()
+            if detected_model:
+                self.options.local_model = detected_model
+                inkex.utils.debug(f"Auto-detected model: {detected_model}")
+            else:
+                inkex.errormsg("Could not auto-detect model. Please specify a model name in the API Config tab.")
                 return
-        elif self.options.api_provider in ["ollama", "llamafile"]:
-            if not self.options.api_url:
-                inkex.errormsg("Please provide a valid API URL for local LLM in the API Config tab.")
-                return
-            
-            # Auto-detect model if enabled and no model specified
-            if self.options.auto_detect_model and not self.options.local_model:
-                detected_model = self.detect_local_model()
-                if detected_model:
-                    self.options.local_model = detected_model
-                    inkex.utils.debug(f"Auto-detected model: {detected_model}")
-                else:
-                    inkex.errormsg("Could not auto-detect model. Please specify a model name in the API Config tab.")
-                    return
-            elif not self.options.local_model:
-                inkex.errormsg("Please specify a local model name in the API Config tab.")
-                return
+        elif not self.options.local_model:
+            inkex.errormsg("Please specify a local model name in the API Config tab.")
+            return
         
         # Handle different operation modes
         if self.options.operation_mode in ['modify', 'translate', 'summarize', 'expand', 'rewrite']:
@@ -252,6 +253,36 @@ class AITextGenerator(inkex.EffectExtension):
         
         return ' '.join(text_parts).strip()
     
+
+    def build_text_style(self):
+        """Build text style dictionary."""
+        style = {}
+        
+        # Apply scale to font size
+        scaled_font_size = self.options.font_size * self.options.text_scale
+        
+        style['font-family'] = self.options.font_family
+        style['font-size'] = f'{scaled_font_size}px'
+        style['font-weight'] = self.options.font_weight
+        style['font-style'] = self.options.font_style
+        style['fill'] = self.options.text_color
+        style['text-anchor'] = self.options.text_align
+        
+        if self.options.text_decoration and self.options.text_decoration != 'none':
+            valid_decorations = ['underline', 'overline', 'line-through']
+            if self.options.text_decoration in valid_decorations:
+                style['text-decoration'] = self.options.text_decoration
+        
+        if self.options.letter_spacing != 0:
+            style['letter-spacing'] = f'{self.options.letter_spacing}px'
+        
+        if self.options.word_spacing != 0:
+            style['word-spacing'] = f'{self.options.word_spacing}px'
+        
+        return style
+
+
+
     def generate_text(self):
         """Generate new text based on prompt."""
         prompt = self.build_create_prompt()
@@ -315,48 +346,20 @@ class AITextGenerator(inkex.EffectExtension):
         return prompt
     
     def call_llm_api(self, prompt):
-        """Call LLM API to generate text (supports OpenAI, Ollama, llamafile)."""
+        """Call LLM API to generate text (supports Ollama, llamafile, and other local providers)."""
         
-        if self.options.api_provider == "openai":
-            return self.call_openai_api(prompt)
-        elif self.options.api_provider == "ollama":
+        if self.options.api_provider == "ollama":
             return self.call_ollama_api(prompt)
         elif self.options.api_provider == "llamafile":
             return self.call_llamafile_api(prompt)
+        elif self.options.api_provider == "custom":
+            return self.call_custom_api(prompt)
         else:
             inkex.errormsg(f"Unknown API provider: {self.options.api_provider}")
             return None
     
-    def call_openai_api(self, prompt):
-        """Call OpenAI API."""
-        url = "https://api.openai.com/v1/chat/completions"
-        
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.options.api_key}'
-        }
-        
-        data = {
-            'model': self.options.model,
-            'messages': [
-                {
-                    'role': 'system',
-                    'content': 'You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary.'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
-            ],
-            'temperature': self.options.temperature,
-            'max_tokens': self.options.max_tokens
-        }
-        
-        return self._make_api_request(url, headers, data, provider="OpenAI")
-    
     def call_ollama_api(self, prompt):
         """Call Ollama API."""
-        # Ensure URL doesn't have trailing slash
         base_url = self.options.api_url.rstrip('/')
         url = f"{base_url}/api/generate"
         
@@ -368,56 +371,70 @@ class AITextGenerator(inkex.EffectExtension):
         system_prompt = "You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary."
         full_prompt = f"{system_prompt}\n\nUser request: {prompt}"
         
-        # Ollama uses a different format
+        # Ollama API format
         data = {
             'model': self.options.local_model,
             'prompt': full_prompt,
-            'stream': self.options.stream_response,
+            'stream': False,  # Disable streaming for reliability
             'options': {
                 'temperature': self.options.temperature,
                 'num_predict': self.options.max_tokens
             }
         }
         
+        # Convert to JSON bytes
+        json_data = json.dumps(data).encode('utf-8')
+        
+        # Create request
         req = urllib.request.Request(
             url,
-            data=json.dumps(data).encode('utf-8'),
+            data=json_data,
             headers=headers,
             method='POST'
         )
         
+        # Debug output
+        inkex.utils.debug(f"=== Ollama Request ===")
+        inkex.utils.debug(f"URL: {url}")
+        inkex.utils.debug(f"Model: {self.options.local_model}")
+        inkex.utils.debug(f"Temperature: {self.options.temperature}")
+        inkex.utils.debug(f"Max tokens: {self.options.max_tokens}")
+        
         context = ssl._create_unverified_context()
         
         try:
-            if self.options.stream_response:
-                return self._handle_ollama_stream(req, context)
-            else:
-                with urllib.request.urlopen(req, timeout=120, context=context) as response:
-                    result = json.loads(response.read().decode('utf-8'))
-                    
-                    if 'response' in result:
-                        text = result['response'].strip()
-                        text = self.clean_text_response(text)
-                        return text
-                    else:
-                        raise Exception("No response field in Ollama API response")
+            with urllib.request.urlopen(req, timeout=120, context=context) as response:
+                response_data = response.read().decode('utf-8')
+                inkex.utils.debug(f"Response (first 300 chars): {response_data[:300]}")
+                
+                result = json.loads(response_data)
+                
+                if 'response' in result:
+                    text = result['response'].strip()
+                    text = self.clean_text_response(text)
+                    inkex.utils.debug(f"Cleaned text (first 200 chars): {text[:200]}")
+                    return text
+                else:
+                    inkex.errormsg(f"Unexpected Ollama response format. Keys: {list(result.keys())}")
+                    return None
         
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
-            try:
-                error_data = json.loads(error_body)
-                error_message = error_data.get('error', str(e))
-            except:
-                error_message = error_body
-            inkex.errormsg(f"Ollama API Error: {error_message}\n\nMake sure Ollama is running (run 'ollama serve' in terminal)")
+            inkex.errormsg(f"Ollama HTTP Error {e.code}:\n{error_body}\n\nURL: {url}\nModel: {self.options.local_model}\n\nMake sure:\n1. Ollama is running: ollama serve\n2. Model is pulled: ollama pull {self.options.local_model}")
             return None
         
         except urllib.error.URLError as e:
-            inkex.errormsg(f"Cannot connect to Ollama at {url}\n\nMake sure:\n1. Ollama is installed\n2. Run 'ollama serve' in terminal\n3. Model '{self.options.local_model}' is pulled (run 'ollama pull {self.options.local_model}')")
+            inkex.errormsg(f"Cannot connect to Ollama at {url}\n\nError: {str(e)}\n\nMake sure:\n1. Ollama is running: ollama serve\n2. URL is correct: {self.options.api_url}\n3. Model is pulled: ollama pull {self.options.local_model}")
+            return None
+        
+        except json.JSONDecodeError as e:
+            inkex.errormsg(f"Invalid JSON response from Ollama:\n{str(e)}\n\nThis usually means Ollama returned an error message instead of JSON.")
             return None
         
         except Exception as e:
-            inkex.errormsg(f"Error calling Ollama: {str(e)}")
+            inkex.errormsg(f"Unexpected error calling Ollama:\n{type(e).__name__}: {str(e)}")
+            import traceback
+            inkex.utils.debug(traceback.format_exc())
             return None
     
     def _handle_ollama_stream(self, req, context):
@@ -427,18 +444,22 @@ class AITextGenerator(inkex.EffectExtension):
             with urllib.request.urlopen(req, timeout=120, context=context) as response:
                 for line in response:
                     if line:
-                        chunk = json.loads(line.decode('utf-8'))
-                        if 'response' in chunk:
-                            full_response += chunk['response']
+                        line_str = line.decode('utf-8').strip()
+                        if line_str:
+                            try:
+                                chunk = json.loads(line_str)
+                                if 'response' in chunk:
+                                    full_response += chunk['response']
+                            except json.JSONDecodeError:
+                                continue
             
-            return self.clean_text_response(full_response.strip())
+            return self.clean_text_response(full_response.strip()) if full_response else None
         except Exception as e:
             inkex.errormsg(f"Error streaming from Ollama: {str(e)}")
             return None
     
     def call_llamafile_api(self, prompt):
         """Call llamafile API."""
-        # Ensure URL doesn't have trailing slash
         base_url = self.options.api_url.rstrip('/')
         url = f"{base_url}/v1/chat/completions"
         
@@ -467,6 +488,37 @@ class AITextGenerator(inkex.EffectExtension):
             data['model'] = self.options.local_model
         
         return self._make_api_request(url, headers, data, provider="llamafile", timeout=120)
+    
+    def call_custom_api(self, prompt):
+        """Call custom local API provider (OpenAI-compatible format)."""
+        base_url = self.options.api_url.rstrip('/')
+        url = f"{base_url}/v1/chat/completions"
+        
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        # Use OpenAI-compatible format for custom providers
+        data = {
+            'messages': [
+                {
+                    'role': 'system',
+                    'content': 'You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary.'
+                },
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            'temperature': self.options.temperature,
+            'max_tokens': self.options.max_tokens
+        }
+        
+        # Only add model if specified
+        if self.options.local_model:
+            data['model'] = self.options.local_model
+        
+        return self._make_api_request(url, headers, data, provider="Custom API", timeout=120)
     
     def _make_api_request(self, url, headers, data, provider="API", timeout=60):
         """Make HTTP request to API."""
@@ -557,12 +609,13 @@ class AITextGenerator(inkex.EffectExtension):
         text_elem.set('x', str(position['x']))
         text_elem.set('y', str(position['y']))
         
-        # Set text style
+        # Set text style (includes scaling)
         style_dict = self.build_text_style()
-        text_elem.style = inkex.Style(style_dict)
+        text_elem.style = style_dict
         
-        # Add text lines
-        line_height_px = self.options.font_size * self.options.line_height
+        # Add text lines with scaled line height
+        scaled_font_size = self.options.font_size * self.options.text_scale
+        line_height_px = scaled_font_size * self.options.line_height
         
         for i, line in enumerate(wrapped_lines):
             if i == 0:
@@ -572,7 +625,6 @@ class AITextGenerator(inkex.EffectExtension):
                 tspan.text = line
                 tspan.set('x', str(position['x']))
                 tspan.set('dy', str(line_height_px))
-                # Don't set text-align on tspan, it's inherited from parent
                 text_elem.append(tspan)
         
         # Add background if requested
@@ -585,7 +637,8 @@ class AITextGenerator(inkex.EffectExtension):
         
         # Add to current layer
         self.svg.get_current_layer().append(group)
-    
+
+
     def modify_text_element(self, text_elem, new_text):
         """Modify existing text element with new text."""
         # Handle FlowRoot differently
@@ -613,12 +666,16 @@ class AITextGenerator(inkex.EffectExtension):
                 font_size = float(existing_font_size.replace('px', '').replace('pt', ''))
             except:
                 font_size = self.options.font_size
-            line_height_px = font_size * self.options.line_height
+            # Apply scale to existing font size
+            scaled_font_size = font_size * self.options.text_scale
+            text_elem.style['font-size'] = f'{scaled_font_size}px'
+            line_height_px = scaled_font_size * self.options.line_height
         else:
-            # Apply new style
+            # Apply new style (includes scaling)
             style_dict = self.build_text_style()
-            text_elem.style = inkex.Style(style_dict)
-            line_height_px = self.options.font_size * self.options.line_height
+            text_elem.style = style_dict
+            scaled_font_size = self.options.font_size * self.options.text_scale
+            line_height_px = scaled_font_size * self.options.line_height
         
         # Add new text lines
         for i, line in enumerate(wrapped_lines):
@@ -630,7 +687,8 @@ class AITextGenerator(inkex.EffectExtension):
                 tspan.set('x', x)
                 tspan.set('dy', str(line_height_px))
                 text_elem.append(tspan)
-    
+                
+                    
     def modify_flowroot_element(self, flowroot, new_text):
         """Modify FlowRoot element with new text."""
         # Find FlowPara element
@@ -653,7 +711,6 @@ class AITextGenerator(inkex.EffectExtension):
     
     def build_text_style(self):
         """Build text style dictionary."""
-        # Create style dictionary with only valid SVG properties
         style = {}
         
         style['font-family'] = self.options.font_family
@@ -661,13 +718,9 @@ class AITextGenerator(inkex.EffectExtension):
         style['font-weight'] = self.options.font_weight
         style['font-style'] = self.options.font_style
         style['fill'] = self.options.text_color
-        
-        # text-anchor for alignment (valid SVG property)
         style['text-anchor'] = self.options.text_align
         
-        # Only add text-decoration if it's not 'none' and has a valid value
         if self.options.text_decoration and self.options.text_decoration != 'none':
-            # Valid SVG text-decoration values
             valid_decorations = ['underline', 'overline', 'line-through']
             if self.options.text_decoration in valid_decorations:
                 style['text-decoration'] = self.options.text_decoration
@@ -682,8 +735,9 @@ class AITextGenerator(inkex.EffectExtension):
     
     def wrap_text(self, text):
         """Wrap text to max width."""
-        # Rough estimate: average character width is about 60% of font size
-        char_width = self.options.font_size * 0.6
+        # Apply scale to calculations
+        scaled_font_size = self.options.font_size * self.options.text_scale
+        char_width = scaled_font_size * 0.6
         max_chars = int(self.options.max_width / char_width)
         
         words = text.split()
@@ -710,9 +764,18 @@ class AITextGenerator(inkex.EffectExtension):
     
     def calculate_position(self):
         """Calculate position based on position mode."""
-        doc_width = self.svg.viewport_width
-        doc_height = self.svg.viewport_height
+        # Get document dimensions
+        try:
+            doc_width = float(self.svg.get('width').replace('px', '').replace('mm', '').replace('pt', ''))
+        except:
+            doc_width = self.svg.viewport_width or 800
         
+        try:
+            doc_height = float(self.svg.get('height').replace('px', '').replace('mm', '').replace('pt', ''))
+        except:
+            doc_height = self.svg.viewport_height or 600
+        
+        # Define base positions
         positions = {
             'center': {'x': doc_width / 2, 'y': doc_height / 2},
             'top_left': {'x': 50, 'y': 50},
@@ -721,42 +784,62 @@ class AITextGenerator(inkex.EffectExtension):
             'bottom_left': {'x': 50, 'y': doc_height - 50},
             'bottom_center': {'x': doc_width / 2, 'y': doc_height - 50},
             'bottom_right': {'x': doc_width - 50, 'y': doc_height - 50},
-            'cursor': {'x': doc_width / 2, 'y': doc_height / 2}  # Default to center if no selection
+            'middle_left': {'x': 50, 'y': doc_height / 2},
+            'middle_right': {'x': doc_width - 50, 'y': doc_height / 2}
         }
         
-        # For cursor mode, try to use selected object position
-        if self.options.position_mode == 'cursor' and self.svg.selection:
-            for elem in self.svg.selection:
-                bbox = elem.bounding_box()
-                if bbox:
-                    return {'x': bbox.center_x, 'y': bbox.center_y}
+        # Handle cursor/selection position
+        if self.options.position_mode == 'cursor':
+            if self.svg.selection:
+                for elem in self.svg.selection:
+                    bbox = elem.bounding_box()
+                    if bbox:
+                        return {
+                            'x': bbox.center_x + self.options.x_offset,
+                            'y': bbox.center_y + self.options.y_offset
+                        }
+            # Fallback to center if no selection
+            return {
+                'x': doc_width / 2 + self.options.x_offset,
+                'y': doc_height / 2 + self.options.y_offset
+            }
         
-        return positions.get(self.options.position_mode, positions['center'])
-    
+        # Get base position
+        base_pos = positions.get(self.options.position_mode, positions['center'])
+        
+        # Apply offsets
+        return {
+            'x': base_pos['x'] + self.options.x_offset,
+            'y': base_pos['y'] + self.options.y_offset
+        }    
     def estimate_text_bbox(self, lines, position):
         """Estimate bounding box for text."""
-        char_width = self.options.font_size * 0.6
-        line_height = self.options.font_size * self.options.line_height
+        # Apply scale to calculations
+        scaled_font_size = self.options.font_size * self.options.text_scale
+        char_width = scaled_font_size * 0.6
+        line_height = scaled_font_size * self.options.line_height
         
-        max_line_length = max(len(line) for line in lines)
+        max_line_length = max(len(line) for line in lines) if lines else 0
         width = max_line_length * char_width
         height = len(lines) * line_height
         
-        # Adjust x based on alignment
+        # Calculate x position based on alignment
         if self.options.text_align == 'middle':
             x = position['x'] - width / 2
         elif self.options.text_align == 'end':
             x = position['x'] - width
-        else:
+        else:  # start
             x = position['x']
+        
+        # Y position starts at the top of the first line
+        y = position['y'] - scaled_font_size
         
         return {
             'x': x - self.options.bg_padding,
-            'y': position['y'] - self.options.font_size - self.options.bg_padding,
+            'y': y - self.options.bg_padding,
             'width': width + self.options.bg_padding * 2,
             'height': height + self.options.bg_padding * 2
-        }
-    
+        }    
     def create_background_rect(self, bbox):
         """Create background rectangle."""
         rect = Rectangle()
