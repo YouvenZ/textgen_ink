@@ -3,6 +3,12 @@
 Inkscape extension to generate and modify text using local LLM (Ollama, llamafile).
 """
 
+# MIT License
+
+# Copyright (c) 2026 Rachid, Youven ZEGHLACHE
+#!/usr/bin/env python3
+
+
 import inkex
 from inkex import TextElement, Rectangle, Group, Tspan, FlowRoot, FlowPara
 import re
