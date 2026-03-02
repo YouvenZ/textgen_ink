@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
-Inkscape extension to generate and modify text using local LLM (Ollama, llamafile).
+Inkscape extension to generate and modify text using local LLM (Ollama, llamafile) and cloud providers.
 """
 
 # MIT License
-
 # Copyright (c) 2026 Rachid, Youven ZEGHLACHE
-#!/usr/bin/env python3
-
 
 import inkex
 from inkex import TextElement, Rectangle, Group, Tspan, FlowRoot, FlowPara
@@ -15,10 +12,120 @@ import re
 import urllib.request
 import json
 import ssl
+import os
+from pathlib import Path
+
+
+# Model configurations for popular providers
+MODEL_CONFIGS = {
+    'openai': {
+        'api_url': 'https://api.openai.com/v1',
+        'models': ['gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'gpt-4o-mini'],
+        'env_key': 'OPENAI_API_KEY',
+        'default_model': 'gpt-4o-mini'
+    },
+    'anthropic': {
+        'api_url': 'https://api.anthropic.com/v1',
+        'models': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+        'env_key': 'ANTHROPIC_API_KEY',
+        'default_model': 'claude-3-5-sonnet-20241022'
+    },
+    'google': {
+        'api_url': 'https://generativelanguage.googleapis.com/v1beta',
+        'models': ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+        'env_key': 'GOOGLE_API_KEY',
+        'default_model': 'gemini-2.0-flash-exp'
+    },
+    'mistral': {
+        'api_url': 'https://api.mistral.ai/v1',
+        'models': ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'open-mistral-7b'],
+        'env_key': 'MISTRAL_API_KEY',
+        'default_model': 'mistral-small-latest'
+    },
+    'cohere': {
+        'api_url': 'https://api.cohere.ai/v1',
+        'models': ['command-r-plus', 'command-r', 'command', 'command-light'],
+        'env_key': 'COHERE_API_KEY',
+        'default_model': 'command-r'
+    },
+    'groq': {
+        'api_url': 'https://api.groq.com/openai/v1',
+        'models': ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+        'env_key': 'GROQ_API_KEY',
+        'default_model': 'llama-3.3-70b-versatile'
+    }
+}
 
 
 class AITextGenerator(inkex.EffectExtension):
-    """Extension to generate and modify text using local LLM."""
+    """Extension to generate and modify text using local LLM and cloud providers."""
+    
+    def __init__(self):
+        super().__init__()
+        self.api_key = None
+        self.config = {}
+        self.load_config()
+    
+    def load_config(self):
+        """Load configuration from config.json file."""
+        config_path = Path(__file__).parent / 'config.json'
+        
+        # Default configuration structure
+        default_config = {
+            "api_keys": {
+                "openai": "",
+                "anthropic": "",
+                "google": "",
+                "mistral": "",
+                "cohere": "",
+                "groq": ""
+            },
+            "default_providers": {
+                "openai": "gpt-4o-mini",
+                "anthropic": "claude-3-5-sonnet-20241022",
+                "google": "gemini-2.0-flash-exp",
+                "mistral": "mistral-small-latest",
+                "cohere": "command-r",
+                "groq": "llama-3.3-70b-versatile"
+            },
+            "settings": {
+                "temperature": 0.7,
+                "max_tokens": 500,
+                "auto_detect_model": True
+            }
+        }
+        
+        # Try to load existing config
+        if config_path.exists():
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+                    inkex.utils.debug(f"Config loaded from {config_path}")
+            except json.JSONDecodeError as e:
+                inkex.utils.debug(f"Error parsing config.json: {e}. Using default config.")
+                self.config = default_config
+            except Exception as e:
+                inkex.utils.debug(f"Error loading config.json: {e}. Using default config.")
+                self.config = default_config
+        else:
+            # Create default config file if it doesn't exist
+            self.config = default_config
+            try:
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_config, f, indent=2)
+                inkex.utils.debug(f"Created default config.json at {config_path}")
+            except Exception as e:
+                inkex.utils.debug(f"Could not create config.json: {e}")
+    
+    def save_config(self):
+        """Save configuration to config.json file."""
+        config_path = Path(__file__).parent / 'config.json'
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2)
+            inkex.utils.debug(f"Config saved to {config_path}")
+        except Exception as e:
+            inkex.utils.debug(f"Error saving config.json: {e}")
     
     def add_arguments(self, pars):
         pars.add_argument("--tab", type=str, default="mode", help="Active tab")
@@ -27,6 +134,7 @@ class AITextGenerator(inkex.EffectExtension):
         # API Configuration
         pars.add_argument("--api_provider", type=str, default="ollama", help="API provider")
         pars.add_argument("--api_url", type=str, default="http://localhost:11434", help="Local API URL")
+        pars.add_argument("--api_key", type=str, default="", help="API Key for closed-source models")
         pars.add_argument("--prompt", type=str, default="", help="User prompt")
         pars.add_argument("--local_model", type=str, default="", help="Local model name")
         pars.add_argument("--target_language", type=str, default="French", help="Target language for translation")
@@ -69,6 +177,47 @@ class AITextGenerator(inkex.EffectExtension):
         pars.add_argument("--remove_quotes", type=inkex.Boolean, default=True, help="Remove surrounding quotes")
         pars.add_argument("--capitalize_first", type=inkex.Boolean, default=False, help="Capitalize first letter")
     
+    def get_api_key(self):
+        """Get API key from UI input, config.json, or environment variable."""
+        # Priority 1: UI input
+        if self.options.api_key and self.options.api_key.strip():
+            api_key = self.options.api_key.strip()
+            # Save to config if it's new
+            if self.config.get('api_keys', {}).get(self.options.api_provider, '') != api_key:
+                if 'api_keys' not in self.config:
+                    self.config['api_keys'] = {}
+                self.config['api_keys'][self.options.api_provider] = api_key
+                self.save_config()
+            return api_key
+        
+        # Priority 2: config.json
+        if self.options.api_provider in MODEL_CONFIGS:
+            config_key = self.config.get('api_keys', {}).get(self.options.api_provider, '')
+            if config_key:
+                return config_key
+            
+            # Priority 3: Environment variable
+            env_key = MODEL_CONFIGS[self.options.api_provider]['env_key']
+            env_value = os.environ.get(env_key, '')
+            if env_value:
+                return env_value
+        
+        return ''
+    
+    def get_default_model(self):
+        """Get default model from config.json or MODEL_CONFIGS."""
+        provider = self.options.api_provider
+        
+        # Try config.json first
+        if provider in self.config.get('default_providers', {}):
+            return self.config['default_providers'][provider]
+        
+        # Fallback to MODEL_CONFIGS
+        if provider in MODEL_CONFIGS:
+            return MODEL_CONFIGS[provider]['default_model']
+        
+        return ''
+    
     def effect(self):
         """Main effect function."""
         # Validate API configuration
@@ -81,8 +230,19 @@ class AITextGenerator(inkex.EffectExtension):
         if self.options.local_model:
             self.options.local_model = self.options.local_model.strip()
         
-        # Auto-detect model if enabled and no model specified
-        if self.options.auto_detect_model and not self.options.local_model:
+        # Get API key for closed-source providers
+        if self.options.api_provider in MODEL_CONFIGS:
+            self.api_key = self.get_api_key()
+            if not self.api_key:
+                inkex.errormsg(f"API key required for {self.options.api_provider}.\n\nPlease either:\n1. Enter API key in the API Config tab, or\n2. Add it to config.json file as:\n   \"api_keys\": {{\n     \"{self.options.api_provider}\": \"your_key_here\"\n   }}")
+                return
+            
+            # Use default model if none specified
+            if not self.options.local_model:
+                self.options.local_model = self.get_default_model()
+        
+        # Auto-detect model if enabled and no model specified (for local providers)
+        elif self.options.auto_detect_model and not self.options.local_model:
             detected_model = self.detect_local_model()
             if detected_model:
                 self.options.local_model = detected_model
@@ -313,7 +473,11 @@ class AITextGenerator(inkex.EffectExtension):
                 'enthusiastic': 'Use enthusiastic and energetic language.',
                 'humorous': 'Add humor and wit.',
                 'serious': 'Use serious and straightforward tone.',
-                'poetic': 'Use poetic and artistic language.'
+                'poetic': 'Use poetic and artistic language.',
+                'educational': 'Use clear, educational language.',
+                'persuasive': 'Use persuasive and convincing language.',
+                'technical': 'Use precise technical language.',
+                'creative': 'Use creative and imaginative language.'
             }
             prompt_parts.append(tone_instructions.get(self.options.tone, ''))
         
@@ -343,7 +507,11 @@ class AITextGenerator(inkex.EffectExtension):
                 'enthusiastic': '\nUse enthusiastic tone.',
                 'humorous': '\nAdd humor.',
                 'serious': '\nUse serious tone.',
-                'poetic': '\nUse poetic language.'
+                'poetic': '\nUse poetic language.',
+                'educational': '\nUse educational tone.',
+                'persuasive': '\nUse persuasive language.',
+                'technical': '\nUse technical language.',
+                'creative': '\nUse creative language.'
             }
             prompt += tone_instructions.get(self.options.tone, '')
         
@@ -352,16 +520,189 @@ class AITextGenerator(inkex.EffectExtension):
         return prompt
     
     def call_llm_api(self, prompt):
-        """Call LLM API to generate text (supports Ollama, llamafile, and other local providers)."""
+        """Call LLM API to generate text (supports Ollama, llamafile, and cloud providers)."""
         
         if self.options.api_provider == "ollama":
             return self.call_ollama_api(prompt)
         elif self.options.api_provider == "llamafile":
             return self.call_llamafile_api(prompt)
+        elif self.options.api_provider in MODEL_CONFIGS:
+            return self.call_cloud_api(prompt)
         elif self.options.api_provider == "custom":
             return self.call_custom_api(prompt)
         else:
             inkex.errormsg(f"Unknown API provider: {self.options.api_provider}")
+            return None
+    
+    def call_cloud_api(self, prompt):
+        """Call cloud API (OpenAI, Anthropic, Google, etc.)."""
+        provider = self.options.api_provider
+        config = MODEL_CONFIGS[provider]
+        
+        if provider == 'anthropic':
+            return self.call_anthropic_api(prompt, config)
+        elif provider == 'google':
+            return self.call_google_api(prompt, config)
+        elif provider == 'cohere':
+            return self.call_cohere_api(prompt, config)
+        else:
+            # OpenAI-compatible (OpenAI, Mistral, Groq)
+            return self.call_openai_compatible_api(prompt, config)
+    
+    def call_openai_compatible_api(self, prompt, config):
+        """Call OpenAI-compatible API (OpenAI, Mistral, Groq)."""
+        url = f"{config['api_url']}/chat/completions"
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.api_key}'
+        }
+        
+        data = {
+            'model': self.options.local_model,
+            'messages': [
+                {
+                    'role': 'system',
+                    'content': 'You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary.'
+                },
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            'temperature': self.options.temperature,
+            'max_tokens': self.options.max_tokens
+        }
+        
+        return self._make_api_request(url, headers, data, provider=self.options.api_provider.title())
+    
+    def call_anthropic_api(self, prompt, config):
+        """Call Anthropic Claude API."""
+        url = f"{config['api_url']}/messages"
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': self.api_key,
+            'anthropic-version': '2023-06-01'
+        }
+        
+        data = {
+            'model': self.options.local_model,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            'system': 'You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary.',
+            'temperature': self.options.temperature,
+            'max_tokens': self.options.max_tokens
+        }
+        
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        
+        context = ssl._create_unverified_context()
+        
+        try:
+            with urllib.request.urlopen(req, timeout=120, context=context) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                
+                if 'content' in result and len(result['content']) > 0:
+                    text = result['content'][0]['text'].strip()
+                    return self.clean_text_response(text)
+                else:
+                    raise Exception("No content in Anthropic API response")
+        
+        except Exception as e:
+            inkex.errormsg(f"Anthropic API Error: {str(e)}")
+            return None
+    
+    def call_google_api(self, prompt, config):
+        """Call Google Gemini API."""
+        url = f"{config['api_url']}/models/{self.options.local_model}:generateContent?key={self.api_key}"
+        
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'contents': [{
+                'parts': [{
+                    'text': f"You are a helpful text generator. You respond with only the requested text content.\n\n{prompt}"
+                }]
+            }],
+            'generationConfig': {
+                'temperature': self.options.temperature,
+                'maxOutputTokens': self.options.max_tokens
+            }
+        }
+        
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        
+        context = ssl._create_unverified_context()
+        
+        try:
+            with urllib.request.urlopen(req, timeout=120, context=context) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    text = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    return self.clean_text_response(text)
+                else:
+                    raise Exception("No candidates in Google API response")
+        
+        except Exception as e:
+            inkex.errormsg(f"Google API Error: {str(e)}")
+            return None
+    
+    def call_cohere_api(self, prompt, config):
+        """Call Cohere API."""
+        url = f"{config['api_url']}/chat"
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.api_key}'
+        }
+        
+        data = {
+            'model': self.options.local_model,
+            'message': prompt,
+            'preamble': 'You are a helpful text generator. You respond with only the requested text content, without any explanations, formatting markers, or additional commentary.',
+            'temperature': self.options.temperature,
+            'max_tokens': self.options.max_tokens
+        }
+        
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        
+        context = ssl._create_unverified_context()
+        
+        try:
+            with urllib.request.urlopen(req, timeout=120, context=context) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                
+                if 'text' in result:
+                    text = result['text'].strip()
+                    return self.clean_text_response(text)
+                else:
+                    raise Exception("No text in Cohere API response")
+        
+        except Exception as e:
+            inkex.errormsg(f"Cohere API Error: {str(e)}")
             return None
     
     def call_ollama_api(self, prompt):
@@ -714,30 +1055,6 @@ class AITextGenerator(inkex.EffectExtension):
             flow_para = FlowPara()
             flow_para.text = new_text
             flowroot.append(flow_para)
-    
-    def build_text_style(self):
-        """Build text style dictionary."""
-        style = {}
-        
-        style['font-family'] = self.options.font_family
-        style['font-size'] = f'{self.options.font_size}px'
-        style['font-weight'] = self.options.font_weight
-        style['font-style'] = self.options.font_style
-        style['fill'] = self.options.text_color
-        style['text-anchor'] = self.options.text_align
-        
-        if self.options.text_decoration and self.options.text_decoration != 'none':
-            valid_decorations = ['underline', 'overline', 'line-through']
-            if self.options.text_decoration in valid_decorations:
-                style['text-decoration'] = self.options.text_decoration
-        
-        if self.options.letter_spacing != 0:
-            style['letter-spacing'] = f'{self.options.letter_spacing}px'
-        
-        if self.options.word_spacing != 0:
-            style['word-spacing'] = f'{self.options.word_spacing}px'
-        
-        return style
     
     def wrap_text(self, text):
         """Wrap text to max width."""

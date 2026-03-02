@@ -1,4 +1,7 @@
-Collecting workspace information# AI Text Generator for Inkscape
+
+<div align="center">
+
+# AI Text Generator for Inkscape
 
 [![Inkscape](https://img.shields.io/badge/Inkscape-1.0+-blue.svg)](https://inkscape.org/)
 [![Python](https://img.shields.io/badge/Python-3.6+-green.svg)](https://www.python.org/)
@@ -7,6 +10,21 @@ Collecting workspace information# AI Text Generator for Inkscape
 > **Generate and transform text in Inkscape using local AI models (Ollama, llamafile)**
 
 A powerful Inkscape extension that leverages local Large Language Models to create, modify, translate, summarize, expand, and rewrite text directly within your designs. Privacy-focused with no cloud dependencies.
+
+</div>
+
+## 📺 Demo
+
+<div align="center">
+
+<!-- Replace VIDEO_ID with your actual YouTube video ID -->
+[![Watch the Demo](https://img.youtube.com/vi/eWKEFbAmWfE/maxresdefault.jpg)](https://www.youtube.com/watch?v=eWKEFbAmWfE)
+
+*Click to watch the full tutorial on YouTube*
+
+</div>
+
+
 
 ---
 

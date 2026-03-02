@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-    <name>AI Text Generator (Local LLM)</name>
+    <name>AI Text Generator (Local &amp; Cloud LLM)</name>
     <id>com.youvenz.textgen</id>
     
     <param name="tab" type="notebook">
@@ -16,33 +16,66 @@
                 <option value="rewrite">Rewrite Selected Text</option>
             </param>
             <spacer/>
-            <label>Create Mode: Generate new text from a prompt</label>
-            <label>Modify Mode: Change selected text based on instructions</label>
-            <label>Translate Mode: Translate to target language</label>
-            <label>Summarize Mode: Make text shorter and concise</label>
-            <label>Expand Mode: Add more detail and examples</label>
-            <label>Rewrite Mode: Improve grammar and clarity</label>
+            <label>📝 Create Mode: Generate new text from a prompt</label>
+            <label>✏️ Modify Mode: Change selected text based on instructions</label>
+            <label>🌐 Translate Mode: Translate to target language</label>
+            <label>📄 Summarize Mode: Make text shorter and concise</label>
+            <label>📚 Expand Mode: Add more detail and examples</label>
+            <label>✨ Rewrite Mode: Improve grammar and clarity</label>
         </page>
         
         <!-- API Configuration Tab -->
         <page name="api_config" gui-text="API Config">
-            <label appearance="header">Local LLM Configuration</label>
+            <label appearance="header">Provider Selection</label>
             <param name="api_provider" type="optiongroup" appearance="combo" gui-text="Provider:">
-                <option value="ollama">Ollama</option>
-                <option value="llamafile">llamafile</option>
-                <option value="custom">Custom (OpenAI-compatible)</option>
+                <option value="ollama">🦙 Ollama (Local)</option>
+                <option value="llamafile">📁 llamafile (Local)</option>
+                <option value="openai">🤖 OpenAI</option>
+                <option value="anthropic">🧠 Anthropic (Claude)</option>
+                <option value="google">🔍 Google (Gemini)</option>
+                <option value="mistral">🌊 Mistral AI</option>
+                <option value="cohere">💬 Cohere</option>
+                <option value="groq">⚡ Groq</option>
+                <option value="custom">🔧 Custom (OpenAI-compatible)</option>
             </param>
+            <spacer/>
+            
+            <label appearance="header">Connection Settings</label>
             <param name="api_url" type="string" gui-text="API URL:">http://localhost:11434</param>
+            <param name="api_key" type="string" gui-text="API Key (optional - see below):"></param>
+            <label>💡 Leave API Key empty to use config.json</label>
+            <label>🔒 Entered keys are auto-saved to config.json</label>
             <spacer/>
-            <label>Model Configuration:</label>
-            <param name="auto_detect_model" type="bool" gui-text="Auto-detect model">true</param>
-            <param name="local_model" type="string" gui-text="Model name (if not auto-detected):"></param>
+            
+            <label appearance="header">Model Configuration</label>
+            <param name="auto_detect_model" type="bool" gui-text="🔎 Auto-detect model (local only)">true</param>
+            <param name="local_model" type="string" gui-text="Model name (optional):"></param>
+            <label>Leave empty to use default from config.json</label>
             <spacer/>
-            <label>Common URLs:</label>
-            <label>• Ollama: http://localhost:11434</label>
-            <label>• llamafile: http://localhost:8080</label>
+            
+            <label appearance="header">📌 Quick Reference (⭐ = Recommended default)</label>
+            <label>Local Provider URLs:</label>
+            <label>  • Ollama: http://localhost:11434</label>
+            <label>  • llamafile: http://localhost:8080</label>
+            <label>  • LM Studio: http://localhost:1234</label>
+            <label>  • text-generation-webui: http://localhost:5000</label>
             <spacer/>
-            <label>Make sure your local LLM server is running before use!</label>
+            <label>Popular Models by Provider:</label>
+            <label>OpenAI:</label>
+            <label>  • gpt-4o (Advanced, expensive)</label>
+            <label>  • gpt-4o-mini (Fast, affordable) ⭐</label>
+            <label>  • gpt-4-turbo (Balanced)</label>
+            <spacer/>
+            <label>Anthropic:</label>
+            <label>  • claude-3-5-sonnet-20241022 ⭐</label>
+            <label>  • claude-3-5-haiku-20241022 (Fast)</label>
+            <label>  • claude-3-opus-20240229 (Advanced)</label>
+            <spacer/>
+            <label>Google:</label>
+            <label>  • gemini-2.0-flash-exp (Experimental) ⭐</label>
+            <label>  • gemini-1.5-pro (Advanced)</label>
+            <label>  • gemini-1.5-flash (Fast)</label>
+            <spacer/>
         </page>
         
         <!-- Prompt Tab -->
@@ -50,30 +83,50 @@
             <label appearance="header">Text Generation Prompt</label>
             <param name="prompt" type="string" gui-text="Your prompt:" gui-description="Enter what you want to generate or how to modify the text">Write a professional email greeting</param>
             <spacer/>
+            
+            <label>💡 Prompt Tips:</label>
+            <label>  • Be specific and clear</label>
+            <label>  • Specify length if needed (e.g., "in 3 sentences")</label>
+            <label>  • Include context for better results</label>
+            <label>  • Use examples when helpful</label>
+            <spacer/>
+            
+            <label appearance="header">Translation Settings</label>
             <label>Target Language (for translation mode):</label>
             <param name="target_language" type="optiongroup" appearance="combo" gui-text="Target Language:">
-                <option value="French">French</option>
-                <option value="Spanish">Spanish</option>
-                <option value="German">German</option>
-                <option value="Italian">Italian</option>
-                <option value="Portuguese">Portuguese</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Japanese">Japanese</option>
-                <option value="Korean">Korean</option>
-                <option value="Arabic">Arabic</option>
-                <option value="Russian">Russian</option>
-                <option value="Dutch">Dutch</option>
-                <option value="Polish">Polish</option>
-                <option value="Turkish">Turkish</option>
-                <option value="Swedish">Swedish</option>
-                <option value="Danish">Danish</option>
-                <option value="Norwegian">Norwegian</option>
-                <option value="Finnish">Finnish</option>
+                <option value="English">🇬🇧 English</option>
+                <option value="French">🇫🇷 French</option>
+                <option value="Spanish">🇪🇸 Spanish</option>
+                <option value="German">🇩🇪 German</option>
+                <option value="Italian">🇮🇹 Italian</option>
+                <option value="Portuguese">🇵🇹 Portuguese</option>
+                <option value="Chinese">🇨🇳 Chinese</option>
+                <option value="Japanese">🇯🇵 Japanese</option>
+                <option value="Korean">🇰🇷 Korean</option>
+                <option value="Arabic">🇸🇦 Arabic</option>
+                <option value="Russian">🇷🇺 Russian</option>
+                <option value="Dutch">🇳🇱 Dutch</option>
+                <option value="Polish">🇵🇱 Polish</option>
+                <option value="Turkish">🇹🇷 Turkish</option>
+                <option value="Swedish">🇸🇪 Swedish</option>
+                <option value="Danish">🇩🇰 Danish</option>
+                <option value="Norwegian">🇳🇴 Norwegian</option>
+                <option value="Finnish">🇫🇮 Finnish</option>
+                <option value="Hindi">🇮🇳 Hindi</option>
+                <option value="Bengali">🇧🇩 Bengali</option>
+                <option value="Vietnamese">🇻🇳 Vietnamese</option>
+                <option value="Thai">🇹🇭 Thai</option>
+                <option value="Hebrew">🇮🇱 Hebrew</option>
+                <option value="Greek">🇬🇷 Greek</option>
+                <option value="Czech">🇨🇿 Czech</option>
+                <option value="Romanian">🇷🇴 Romanian</option>
+                <option value="Hungarian">🇭🇺 Hungarian</option>
             </param>
             <spacer/>
-            <label>Tone/Style:</label>
+            
+            <label appearance="header">Tone &amp; Style</label>
             <param name="tone" type="optiongroup" appearance="combo" gui-text="Tone:">
-                <option value="none">Default</option>
+                <option value="none">Default (None)</option>
                 <option value="formal">Formal</option>
                 <option value="casual">Casual</option>
                 <option value="professional">Professional</option>
@@ -82,16 +135,26 @@
                 <option value="humorous">Humorous</option>
                 <option value="serious">Serious</option>
                 <option value="poetic">Poetic</option>
+                <option value="educational">Educational</option>
+                <option value="persuasive">Persuasive</option>
+                <option value="technical">Technical</option>
+                <option value="creative">Creative</option>
             </param>
+            <label>Select tone to influence writing style</label>
         </page>
         
         <!-- Text Style Tab -->
         <page name="style" gui-text="Text Style">
             <label appearance="header">Typography</label>
             <param name="font_family" type="string" gui-text="Font Family:">Arial</param>
+            <label>Examples: Arial, Helvetica, Times New Roman, Courier</label>
+            <spacer/>
+            
             <param name="font_size" type="int" min="6" max="500" gui-text="Font Size (px):">24</param>
             <param name="text_scale" type="float" min="0.1" max="10.0" precision="2" gui-text="Scale Multiplier:">1.0</param>
+            <label>💡 Use scale to adjust size without changing base value</label>
             <spacer/>
+            
             <param name="font_weight" type="optiongroup" appearance="combo" gui-text="Font Weight:">
                 <option value="normal">Normal</option>
                 <option value="bold">Bold</option>
@@ -107,11 +170,15 @@
                 <option value="800">800 (Extra Bold)</option>
                 <option value="900">900 (Black)</option>
             </param>
+            <spacer/>
+            
             <param name="font_style" type="optiongroup" appearance="combo" gui-text="Font Style:">
                 <option value="normal">Normal</option>
                 <option value="italic">Italic</option>
                 <option value="oblique">Oblique</option>
             </param>
+            <spacer/>
+            
             <param name="text_decoration" type="optiongroup" appearance="combo" gui-text="Text Decoration:">
                 <option value="none">None</option>
                 <option value="underline">Underline</option>
@@ -125,11 +192,18 @@
             <label appearance="header">Text Color</label>
             <param name="text_color" type="color" gui-text="Text Color:">#000000FF</param>
             <spacer/>
+            
             <label appearance="header">Background (Optional)</label>
             <param name="use_background" type="bool" gui-text="Add background rectangle">false</param>
             <param name="bg_color" type="color" gui-text="Background Color:">#FFFFFFFF</param>
             <param name="bg_opacity" type="float" min="0.0" max="1.0" precision="2" gui-text="Background Opacity:">0.8</param>
             <param name="bg_padding" type="int" min="0" max="100" gui-text="Padding (px):">10</param>
+            <spacer/>
+            
+            <label>💡 Background Tips:</label>
+            <label>  • Enable for better readability over images</label>
+            <label>  • Adjust opacity for subtle backgrounds</label>
+            <label>  • Increase padding for more breathing room</label>
         </page>
         
         <!-- Layout Tab -->
@@ -149,7 +223,9 @@
             </param>
             <param name="x_offset" type="float" min="-10000" max="10000" gui-text="X Offset (px):">0</param>
             <param name="y_offset" type="float" min="-10000" max="10000" gui-text="Y Offset (px):">0</param>
+            <label>Use offsets to fine-tune position</label>
             <spacer/>
+            
             <label appearance="header">Text Alignment</label>
             <param name="text_align" type="optiongroup" appearance="combo" gui-text="Horizontal Align:">
                 <option value="start">Left</option>
@@ -157,9 +233,16 @@
                 <option value="end">Right</option>
             </param>
             <spacer/>
+            
             <label appearance="header">Spacing</label>
             <param name="max_width" type="int" min="50" max="5000" gui-text="Max Width (px):">600</param>
+            <label>Text will wrap at this width</label>
+            <spacer/>
+            
             <param name="line_height" type="float" min="0.5" max="5.0" precision="1" gui-text="Line Height:">1.2</param>
+            <label>Spacing between lines (1.0 = normal)</label>
+            <spacer/>
+            
             <param name="letter_spacing" type="float" min="-50" max="50" precision="1" gui-text="Letter Spacing (px):">0</param>
             <param name="word_spacing" type="float" min="-50" max="50" precision="1" gui-text="Word Spacing (px):">0</param>
         </page>
@@ -168,55 +251,76 @@
         <page name="advanced" gui-text="Advanced">
             <label appearance="header">LLM Parameters</label>
             <param name="temperature" type="float" min="0.0" max="2.0" precision="2" gui-text="Temperature:">0.7</param>
-            <label>Lower = More focused, Higher = More creative</label>
+            <label>Lower = More focused/deterministic</label>
+            <label>Higher = More creative/random</label>
+            <label>Recommended: 0.3-0.5 (factual), 0.7-0.9 (creative)</label>
             <spacer/>
-            <param name="max_tokens" type="int" min="10" max="4000" gui-text="Max Tokens:">500</param>
+            
+            <param name="max_tokens" type="int" min="10" max="8000" gui-text="Max Tokens:">500</param>
             <label>Maximum length of generated text</label>
+            <label>⚠️ Note: Cloud providers may have different limits:</label>
+            <label>  • GPT-4o: 4096 tokens</label>
+            <label>  • Claude: 4096 tokens</label>
+            <label>  • Gemini: 8192 tokens</label>
+            <label>  • Groq: varies by model</label>
             <spacer/>
+            
             <label appearance="header">Text Processing</label>
             <param name="preserve_style" type="bool" gui-text="Preserve original style when modifying">true</param>
-            <param name="remove_asterisks" type="bool" gui-text="Remove markdown asterisks (**)">true</param>
-            <param name="remove_quotes" type="bool" gui-text="Remove surrounding quotes">true</param>
-            <param name="capitalize_first" type="bool" gui-text="Capitalize first letter">false</param>
+            <label>Keep existing font, size, color when modifying text</label>
             <spacer/>
-            <label appearance="header">Experimental</label>
-            <param name="stream_response" type="bool" gui-text="Stream response (experimental)">false</param>
-            <label>Note: Streaming may not work with all providers</label>
+            
+            <param name="remove_asterisks" type="bool" gui-text="Remove markdown asterisks (**)">true</param>
+            <label>Clean up bold/italic markdown formatting</label>
+            <spacer/>
+            
+            <param name="remove_quotes" type="bool" gui-text="Remove surrounding quotes">true</param>
+            <label>Remove quotes around entire response</label>
+            <spacer/>
+            
+            <param name="capitalize_first" type="bool" gui-text="Capitalize first letter">false</param>
+            <label>Force first letter to uppercase</label>
+            <spacer/>
+            
+            <label appearance="header">Experimental Features</label>
+            <param name="stream_response" type="bool" gui-text="Stream response (local only)">false</param>
+            <label>⚠️ Streaming only works with local providers</label>
+            <label>Not recommended - may cause issues</label>
         </page>
         
         <!-- Help Tab -->
         <page name="help" gui-text="Help">
-            <label appearance="header">Quick Start Guide</label>
-            <label>1. Install and start a local LLM:</label>
-            <label>   • Ollama: https://ollama.ai</label>
+            <label appearance="header">🚀 Quick Start Guide</label>
+            <label appearance="header">LOCAL LLM SETUP</label>
+            <label>1. Install a local LLM provider:</label>
+            <label>   • Ollama: https://ollama.ai/download</label>
             <label>   • llamafile: https://github.com/Mozilla-Ocho/llamafile</label>
+            <label>2. Start the server:</label>
+            <label>   • Ollama: ollama serve</label>
+            <label>   • llamafile: ./llamafile</label>
+            <label>3. Pull/download a model:</label>
+            <label>   • Ollama: ollama pull llama2</label>
+            <label>4. Select provider in 'API Config' tab</label>
+            <label>5. Extension will auto-detect available models</label>
             <spacer/>
-            <label>2. Configure API settings in 'API Config' tab</label>
-            <label>3. Choose operation mode in 'Mode' tab</label>
-            <label>4. Enter your prompt in 'Prompt' tab</label>
-            <label>5. Customize style and layout (optional)</label>
-            <label>6. Click Apply to generate text</label>
+            
+            <label appearance="header">CLOUD API SETUP</label>
+            <label>Option 1: Using config.json (Recommended 🔒)</label>
+            <label>1. Navigate to extension folder:</label>
+            <label>   Windows: %APPDATA%\inkscape\extensions\text_gen\</label>
+            <label>   macOS: ~/.config/inkscape/extensions/text_gen/</label>
+            <label>   Linux: ~/.config/inkscape/extensions/text_gen/</label>
+            <label>2. Edit config.json file</label>
+            <label>3. Add your API keys (see structure below)</label>
+            <label>4. Save and restart Inkscape</label>
             <spacer/>
-            <label appearance="header">Ollama Setup</label>
-            <label>Install: https://ollama.ai/download</label>
-            <label>Start server: ollama serve</label>
-            <label>Pull a model: ollama pull llama2</label>
-            <label>Default URL: http://localhost:11434</label>
+            
+            <label>Option 2: Using UI (Quick but less secure)</label>
+            <label>1. Enter API key in 'API Config' tab</label>
+            <label>2. Key will be auto-saved to config.json</label>
+            <label>3. Can be used immediately</label>
             <spacer/>
-            <label appearance="header">llamafile Setup</label>
-            <label>Download from: https://github.com/Mozilla-Ocho/llamafile</label>
-            <label>Make executable: chmod +x llamafile</label>
-            <label>Run: ./llamafile</label>
-            <label>Default URL: http://localhost:8080</label>
-            <spacer/>
-            <label appearance="header">Tips</label>
-            <label>• Be specific in your prompts</label>
-            <label>• Use 'Modify' mode to refine existing text</label>
-            <label>• Adjust temperature for creativity vs consistency</label>
-            <label>• Enable auto-detect to find models automatically</label>
-            <spacer/>
-            <label>Version: 2.0.0</label>
-            <label>Author: YouvenZ</label>
+            
         </page>
     </param>
     
